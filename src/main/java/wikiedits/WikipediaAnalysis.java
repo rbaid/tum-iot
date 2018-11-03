@@ -83,7 +83,7 @@ Map<String, String> config = new HashMap<>();
 config.put("cluster.name", "my-cluster-name");
 // This instructs the sink to emit after every element, otherwise they would be buffered
 config.put("bulk.flush.max.actions", "1");
-
+/*
 List<InetSocketAddress> transportAddresses = new ArrayList<>();
 transportAddresses.add(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 9300));
 transportAddresses.add(new InetSocketAddress(InetAddress.getByName("10.2.3.1"), 9300));
@@ -104,7 +104,7 @@ input.addSink(new ElasticsearchSink<>(config, transportAddresses, new Elasticsea
         indexer.add(createIndexRequest(element));
     }
 }));
-   
+   */
 //see.execute();
 
   }
