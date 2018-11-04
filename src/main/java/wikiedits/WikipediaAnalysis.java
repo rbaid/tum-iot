@@ -17,7 +17,14 @@ import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.util.serialization.JSONDeserializationSchema;
+import org.apache.flink.streaming.connectors.elasticsearch2.*;
 import java.util.*;
+import java.net.InetSocketAddress;
+import java.net.InetAddress;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.Requests;
+
+import org.apache.flink.api.common.functions.RuntimeContext;
 
 public class WikipediaAnalysis {
 
@@ -60,9 +67,9 @@ public class WikipediaAnalysis {
 System.out.println("*****************Getting data from kafka***********************");
 
 Properties properties = new Properties();
-properties.setProperty("bootstrap.servers", "104.198.156.183:9092");
+properties.setProperty("bootstrap.servers", "35.192.215.170:9094");
 // only required for Kafka 0.8
-properties.setProperty("zookeeper.connect", "104.198.156.183:2181");
+properties.setProperty("zookeeper.connect", "35.192.215.170:2181");
 properties.setProperty("group.id", "my-group");
 //ParameterTool parameterTool = ParameterTool.fromArgs(args);
 FlinkKafkaConsumer08<String> myConsumer =
@@ -73,7 +80,7 @@ FlinkKafkaConsumer08<String> myConsumer =
 DataStream<String> stream = env.addSource(myConsumer);
 //env.execute();
 stream.print();
-stream.writeAsText("stream.txt");
+//stream.writeAsText("stream.txt");
 System.out.print(stream);
 System.out.print(stream.print());
 
@@ -83,9 +90,9 @@ Map<String, String> config = new HashMap<>();
 config.put("cluster.name", "my-cluster-name");
 // This instructs the sink to emit after every element, otherwise they would be buffered
 config.put("bulk.flush.max.actions", "1");
-/*
+
 List<InetSocketAddress> transportAddresses = new ArrayList<>();
-transportAddresses.add(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 9300));
+transportAddresses.add(new InetSocketAddress(InetAddress.getByName("35.192.215.170"), 9300));
 transportAddresses.add(new InetSocketAddress(InetAddress.getByName("10.2.3.1"), 9300));
 
 input.addSink(new ElasticsearchSink<>(config, transportAddresses, new ElasticsearchSinkFunction<String>() {
@@ -104,8 +111,8 @@ input.addSink(new ElasticsearchSink<>(config, transportAddresses, new Elasticsea
         indexer.add(createIndexRequest(element));
     }
 }));
-   */
-//see.execute();
+   
+ env.execute();
 
   }
 }
