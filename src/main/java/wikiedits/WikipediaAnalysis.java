@@ -17,7 +17,8 @@ import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.util.serialization.JSONDeserializationSchema;
-import org.apache.flink.streaming.connectors.elasticsearch2.*;
+import org.apache.flink.streaming.connectors.elasticsearch.*;
+import org.apache.flink.streaming.connectors.elasticsearch5.ElasticsearchSink;
 import java.util.*;
 import java.net.InetSocketAddress;
 import java.net.InetAddress;
@@ -28,48 +29,16 @@ import org.apache.flink.api.common.functions.RuntimeContext;
 
 public class WikipediaAnalysis {
 
-  public static void main(String[] args) throws Exception {
+public static void main(String[] args) throws Exception {
 
-    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-  //  StreamExecutionEnvironment see = StreamExecutionEnvironment.getExecutionEnvironment();
-/*
-    DataStream<WikipediaEditEvent> edits = see.addSource(new WikipediaEditsSource());
-
-    KeyedStream<WikipediaEditEvent, String> keyedEdits = edits
-      .keyBy(new KeySelector<WikipediaEditEvent, String>() {
-        @Override
-        public String getKey(WikipediaEditEvent event) {
-          return event.getUser();
-        }
-      });
-
-    DataStream<Tuple2<String, Long>> result = keyedEdits
-      .timeWindow(Time.seconds(5))
-      .fold(new Tuple2<>("", 0L), new FoldFunction<WikipediaEditEvent, Tuple2<String, Long>>() {
-        @Override
-        public Tuple2<String, Long> fold(Tuple2<String, Long> acc, WikipediaEditEvent event) {
-          acc.f0 = event.getUser();
-          acc.f1 += event.getByteDiff();
-          return acc;
-        }
-      });
-
-    result
-    .map(new MapFunction<Tuple2<String,Long>, String>() {
-        @Override
-        public String map(Tuple2<String, Long> tuple) {
-            return tuple.toString();
-        }
-    });
-    */
-   // .addSink(new FlinkKafkaProducer08<>("104.155.172.153:9092", "wiki-result", new SimpleStringSchema()));;
+final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 System.out.println("*****************Getting data from kafka***********************");
 
 Properties properties = new Properties();
-properties.setProperty("bootstrap.servers", "35.192.215.170:9094");
+properties.setProperty("bootstrap.servers", "35.226.75.212:9094");
 // only required for Kafka 0.8
-properties.setProperty("zookeeper.connect", "35.192.215.170:2181");
+properties.setProperty("zookeeper.connect", "35.226.75.212:2181");
 properties.setProperty("group.id", "my-group");
 //ParameterTool parameterTool = ParameterTool.fromArgs(args);
 FlinkKafkaConsumer08<String> myConsumer =
@@ -78,41 +47,54 @@ FlinkKafkaConsumer08<String> myConsumer =
 //myConsumer.assignTimestampsAndWatermarks(new CustomWatermarkEmitter());
 
 DataStream<String> stream = env.addSource(myConsumer);
-//env.execute();
 stream.print();
 //stream.writeAsText("stream.txt");
-System.out.print(stream);
-System.out.print(stream.print());
-
-DataStream<String> input = stream;
-
-Map<String, String> config = new HashMap<>();
-config.put("cluster.name", "my-cluster-name");
-// This instructs the sink to emit after every element, otherwise they would be buffered
-config.put("bulk.flush.max.actions", "1");
-
-List<InetSocketAddress> transportAddresses = new ArrayList<>();
-transportAddresses.add(new InetSocketAddress(InetAddress.getByName("35.192.215.170"), 9300));
-transportAddresses.add(new InetSocketAddress(InetAddress.getByName("10.2.3.1"), 9300));
-
-input.addSink(new ElasticsearchSink<>(config, transportAddresses, new ElasticsearchSinkFunction<String>() {
-    public IndexRequest createIndexRequest(String element) {
-        Map<String, String> json = new HashMap<>();
-        json.put("data", element);
-    
-        return Requests.indexRequest()
-                .index("my-index")
-                .type("my-type")
-                .source(json);
-    }
-    
-    @Override
-    public void process(String element, RuntimeContext ctx, RequestIndexer indexer) {
-        indexer.add(createIndexRequest(element));
-    }
-}));
-   
- env.execute();
-
+//System.out.print(stream);
+//System.out.print(stream.print());
+//env.execute();
+writeElastic(stream);
+env.execute("Viper Flink!");
   }
+
+   public static void writeElastic(DataStream<String> input) {
+
+     Map<String, String> config = new HashMap<>();
+ 
+     // This instructs the sink to emit after every element, otherwise they would be buffered
+     config.put("bulk.flush.max.actions", "1");
+     config.put("cluster.name", "docker-cluster");
+ 
+     try {
+         System.out.print("in writeElastic..");
+         // Add elasticsearch hosts on startup
+         List<InetSocketAddress> transports = new ArrayList<>();
+         transports.add(new InetSocketAddress("35.192.111.192", 9300)); // port is 9300 not 9200 for ES TransportClient
+ //transports.add(new InetSocketAddress("elasticsearch", 9300)); 
+         ElasticsearchSinkFunction<String> indexLog = new ElasticsearchSinkFunction<String>() {
+             public IndexRequest createIndexRequest(String element) {
+               //  String[] logContent = element.trim().split("\t");
+                 Map<String, String> esJson = new HashMap<>();
+                 esJson.put("WOrkingIP", element);
+                // esJson.put("info", logContent[1]);
+ 
+                 return Requests
+                         .indexRequest()
+                         .index("viper-test")
+                         .type("viper-log")
+                         .source(esJson);
+             }
+ 
+             @Override
+             public void process(String element, RuntimeContext ctx, RequestIndexer indexer) {
+                 indexer.add(createIndexRequest(element));
+             }
+         };
+ 
+         ElasticsearchSink esSink = new ElasticsearchSink(config, transports, indexLog);
+         input.addSink(esSink);
+     } catch (Exception e) {
+         System.out.println(e);
+     }
+ }
+ 
 }
